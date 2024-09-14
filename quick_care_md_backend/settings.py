@@ -94,7 +94,7 @@ DATABASES = {
         'USER': 'hospital_admin',  # Your PostgreSQL user
         'PASSWORD': 'password',  # Your PostgreSQL password is 'password'
         'HOST': 'localhost',  # The host (usually localhost)
-        'PORT': '',  # Default PostgreSQL port
+        'PORT': '',  # an empty string is the default port
     }
 }
 
@@ -127,4 +127,4 @@ STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
-AUTH_USER_MODEL = 'main_app.User'  # Add your custom user model
+AUTH_USER_MODEL = 'main_app.User'  
