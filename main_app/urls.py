@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     DoctorListCreateView,
     DoctorDetailView,
@@ -15,6 +14,7 @@ from .views import (
 
 urlpatterns = [
     path('', RootView.as_view(), name='root'),
+    
     # Doctor management
     path('doctors/', DoctorListCreateView.as_view(), name='doctor-list-create'),
     path('doctors/<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),
@@ -35,8 +35,4 @@ urlpatterns = [
 
     # Doctor login
     path('doctors/login/', DoctorLoginView.as_view(), name='doctor-login'),
-
-    # JWT authentication (optional, may be handled in the project's main `urls.py`)
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
