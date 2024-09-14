@@ -10,9 +10,11 @@ from .views import (
     TreatmentDetailView,
     DischargeListView,
     DoctorLoginView,
+    RootView,
 )
 
 urlpatterns = [
+    path('', RootView.as_view(), name='root'),
     # Doctor management
     path('doctors/', DoctorListCreateView.as_view(), name='doctor-list-create'),
     path('doctors/<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),

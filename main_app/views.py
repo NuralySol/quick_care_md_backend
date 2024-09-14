@@ -13,6 +13,10 @@ from .serializers import (
 )
 from .permissions import IsAdminUserOrReadOnly, IsDoctorUser
 
+class RootView(APIView):
+    def get(self, request):
+        return Response({"message": "Welcome to Quick Care MD API. Please use the appropriate endpoints."})
+
 # Doctor List and Creation (Admin Only)
 class DoctorListCreateView(generics.ListCreateAPIView):
     queryset = Doctor.objects.all()

@@ -10,6 +10,17 @@ class User(AbstractUser):
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
 
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='custom_user_set',  
+        blank=True
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='custom_user_permissions_set',  
+        blank=True
+    )
+
     def delete(self, *args, **kwargs):
         if self.role == 'admin':
             if Doctor.objects.exists() or Patient.objects.exists():
