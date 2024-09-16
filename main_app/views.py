@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import Doctor, Patient, Disease, Treatment, Discharge
 from .serializers import (
     DoctorSerializer,
@@ -10,12 +11,34 @@ from .serializers import (
     DiseaseSerializer,
     TreatmentSerializer,
     DischargeSerializer,
+    CustomTokenObtainPairSerializer,
+    UserSerializer,
+    
 )
 from .permissions import IsAdminUserOrReadOnly, IsDoctorUser
 
+# Root API view
 class RootView(APIView):
     def get(self, request):
         return Response({"message": "Welcome to Quick Care MD API. Please use the appropriate endpoints."})
+
+class RegisterAdminView(APIView):
+    def post(self, request):
+        # Ensure the role is set to 'admin'
+        request.data['role'] = 'admin'
+        serializer = UserSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            # Log or return the detailed errors for debugging
+            print(serializer.errors)  # Logs errors to the console
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Custom JWT login view to include roles and other claims
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 # Doctor List and Creation (Admin Only)
 class DoctorListCreateView(generics.ListCreateAPIView):
@@ -32,23 +55,6 @@ class DoctorDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = DoctorSerializer
     permission_classes = [permissions.IsAdminUser]
 
-# Doctor Login (JWT Authentication)
-class DoctorLoginView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        user = authenticate(username=username, password=password)
-        if user and user.is_doctor:
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'user': DoctorSerializer(user.doctor).data  # assuming a doctor is linked to the user
-            })
-        return Response({'error': 'Invalid credentials or not a doctor'}, status=status.HTTP_401_UNAUTHORIZED)
-
 # Patient List and Creation (Doctors Only)
 class PatientListCreateView(generics.ListCreateAPIView):
     queryset = Patient.objects.all()
@@ -56,7 +62,7 @@ class PatientListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsDoctorUser]
 
     def perform_create(self, serializer):
-        doctor = self.request.user.doctor  # Assume user is a doctor
+        doctor = self.request.user.doctor  # Assuming a user has a related doctor profile
         serializer.save(doctor=doctor)
 
 # Patient Detail, Update, Delete (Doctors Only)
@@ -69,7 +75,7 @@ class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
 class DiseaseListView(generics.ListAPIView):
     queryset = Disease.objects.all()
     serializer_class = DiseaseSerializer
-    permission_classes = [permissions.IsAuthenticated]  # Accessible to both doctors and admin
+    permission_classes = [permissions.IsAuthenticated]
 
 # Treatment List and Creation (Doctors Only)
 class TreatmentListCreateView(generics.ListCreateAPIView):
@@ -78,7 +84,7 @@ class TreatmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsDoctorUser]
 
     def perform_create(self, serializer):
-        doctor = self.request.user.doctor  # Assume user is a doctor
+        doctor = self.request.user.doctor  # Assuming a user has a related doctor profile
         serializer.save(doctor=doctor)
 
 # Treatment Detail, Update, Delete (Doctors Only)

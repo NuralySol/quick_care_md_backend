@@ -16,7 +16,6 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -89,7 +88,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'quick_care_md_backend.wsgi.application'
 
-
 # PostgreSQL Database configuration
 DATABASES = {
     'default': {
@@ -132,3 +130,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
 AUTH_USER_MODEL = 'main_app.User'  
+
+# Custom authentication backends
+AUTHENTICATION_BACKENDS = [
+    'main_app.backends.CustomAuthBackend',  # Custom backend
+    'django.contrib.auth.backends.ModelBackend',  # Default Django backend
+]
+
+# CORS Configuration (Allow all origins for now)
+CORS_ALLOW_ALL_ORIGINS = True
+
+# JWT settings (you can adjust expiration times here)
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Customize token expiration as needed
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}

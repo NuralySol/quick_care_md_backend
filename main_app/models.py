@@ -24,7 +24,7 @@ class User(AbstractUser):
     def delete(self, *args, **kwargs):
         if self.role == 'admin':
             if Doctor.objects.exists() or Patient.objects.exists():
-                raise ValidationError("Cannot delete admin while doctors or patients exist.")
+                raise ValidationError("Cannot delete admin while doctors or patients exist. Please reassign or remove them before proceeding.")
         super(User, self).delete(*args, **kwargs)
 
 class Doctor(models.Model):
@@ -36,9 +36,16 @@ class Doctor(models.Model):
         return self.name
 
     def fire(self):
-        """Fire the doctor if incorrect treatments exceed a limit"""
-        if self.incorrect_treatments >= 3:  # Assuming 3 incorrect treatments lead to firing
-            self.user.delete()  # Deleting the user will delete the doctor too
+        """Deactivate the doctor instead of deleting them"""
+        if self.incorrect_treatments >= 3:
+            self.user.is_active = False  # Deactivate the user account instead of deleting
+            self.user.save()
+
+    def delete(self, *args, **kwargs):
+        # Prevent deletion if doctor is assigned to any active patients
+        if Patient.objects.filter(doctor=self).exists():
+            raise ValidationError("Cannot delete a doctor while they have active patients.")
+        super(Doctor, self).delete(*args, **kwargs)
 
 class Patient(models.Model):
     name = models.CharField(max_length=100)
@@ -67,15 +74,25 @@ class Treatment(models.Model):
 
     def save(self, *args, **kwargs):
         """Custom save method to check treatment success"""
-        super(Treatment, self).save(*args, **kwargs)
-        if not self.success:
-            # If treatment is incorrect, increase the doctor's incorrect treatment count
-            self.doctor.incorrect_treatments += 1
+        if not self.pk:  # New treatment
+            super(Treatment, self).save(*args, **kwargs)
+            if not self.success:
+                self.doctor.incorrect_treatments += 1
+                self.doctor.save()
+        else:
+            # Handle updates to avoid incrementing on every save
+            old_treatment = Treatment.objects.get(pk=self.pk)
+            if old_treatment.success and not self.success:
+                self.doctor.incorrect_treatments += 1
+            elif not old_treatment.success and self.success:
+                self.doctor.incorrect_treatments -= 1
             self.doctor.save()
+        super(Treatment, self).save(*args, **kwargs)
 
 class Discharge(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     discharged = models.BooleanField(default=False)
+    discharge_date = models.DateTimeField(auto_now_add=True)  # Track discharge date
 
     def __str__(self):
         return f"{self.patient.name} - {'Discharged' if self.discharged else 'Not Discharged'}"
