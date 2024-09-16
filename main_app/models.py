@@ -93,6 +93,7 @@ class Discharge(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     discharged = models.BooleanField(default=False)
     discharge_date = models.DateTimeField(auto_now_add=True)  # Track discharge date
+    
 
     def __str__(self):
         return f"{self.patient.name} - {'Discharged' if self.discharged else 'Not Discharged'}"
