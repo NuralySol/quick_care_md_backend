@@ -8,7 +8,7 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('doctor', 'Doctor'),
     )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='admin')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
 
     groups = models.ManyToManyField(
         'auth.Group',
