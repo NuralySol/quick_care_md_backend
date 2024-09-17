@@ -41,9 +41,14 @@ INSTALLED_APPS = [
     'main_app',  # Add your main application
 ]
 
-# JWT Configuration for 30 days token expiration
+# JWT settings (you can adjust expiration times here)
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Customize token expiration as needed
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
@@ -92,11 +97,11 @@ WSGI_APPLICATION = 'quick_care_md_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'quick_care_db',  # Your database name
+        'NAME': 'quick_care_db',  
         'USER': 'hospital_admin',  # Your PostgreSQL user
         'PASSWORD': 'password',  # Your PostgreSQL password is 'password'
         'HOST': 'localhost',  # The host (usually localhost)
-        'PORT': '',  # an empty string is the default port
+        'PORT': '',  
     }
 }
 
@@ -133,20 +138,27 @@ AUTH_USER_MODEL = 'main_app.User'
 
 # Custom authentication backends
 AUTHENTICATION_BACKENDS = [
-    'main_app.backends.CustomAuthBackend',  # Custom backend
+    'main_app.backends.CustomAuthBackend', # Custom authentication backend
     'django.contrib.auth.backends.ModelBackend',  # Default Django backend
 ]
 
 # CORS Configuration (Allow all origins for now)
 CORS_ALLOW_ALL_ORIGINS = True
 
-# JWT settings (you can adjust expiration times here)
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Customize token expiration as needed
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'AUTH_HEADER_TYPES': ('Bearer',),
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        # Ensure the logger name matches the module where CustomAuthBackend is defined
+        'main_app.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
 }
