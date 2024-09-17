@@ -1,5 +1,7 @@
 from django.urls import path
 from .views import (
+    UserListView,
+    UserDetailView,
     DoctorListCreateView,
     DoctorDetailView,
     PatientListCreateView,
@@ -17,6 +19,8 @@ from .views import CustomTokenObtainPairView  # Import custom token view
 urlpatterns = [
     path('', RootView.as_view(), name='root'),
     
+    path('users/', UserListView.as_view(), name='user-list'),
+    path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
     path('users/register/', RegisterAdminView.as_view(), name='register_admin'),
     # Doctor management
     path('doctors/', DoctorListCreateView.as_view(), name='doctor-list-create'),

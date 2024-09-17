@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import Doctor, Patient, Disease, Treatment, Discharge
+from .models import Doctor, Patient, Disease, Treatment, Discharge, User
 from .serializers import (
     DoctorSerializer,
     PatientSerializer,
@@ -34,6 +34,17 @@ class RegisterAdminView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# User List (Admin Only)
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()  # Fetch all users
+    serializer_class = UserSerializer  # Use the UserSerializer to serialize the data
+
+# View to handle retrieve, update, and delete for a specific user
+class UserDetailView(generics.RetrieveDestroyAPIView):  # You can also add UpdateAPIView if you want to allow updates
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    lookup_field = 'pk'  # This will match the <int:pk> in your URL
 
 # Doctor List and Creation (Admin Only)
 class DoctorListCreateView(generics.ListCreateAPIView):
