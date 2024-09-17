@@ -1,23 +1,6 @@
 from rest_framework import serializers
 from .models import User, Doctor, Patient, Disease, Treatment, Discharge
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
-# Custom JWT Token Serializer to add custom claimsclass CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-
-        # Add custom claims
-        if user.is_superuser:
-            token['role'] = 'superuser'  # Explicitly label superusers
-        else:
-            token['role'] = user.role  # Assume 'role' exists for non-superusers
-
-        token['is_superuser'] = user.is_superuser
-        token['is_active'] = user.is_active
-
-        return token
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,12 +9,23 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # Ensure that the password is properly hashed when creating the user
         password = validated_data.pop('password')
+        print(validated_data) 
         user = User(**validated_data)
         user.set_password(password)
         user.save()
+        print(f"User created with role: {user.role}")  
         return user
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        print(f"this is a token when logging in: {token}")
+        token['role'] = user.role 
+        print(f"this is a user role when logging in: {user.role}")
+        print(user)
+        
+        return token 
 
 # Doctor Serializer
 class DoctorSerializer(serializers.ModelSerializer):

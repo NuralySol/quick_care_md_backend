@@ -13,7 +13,6 @@ from .serializers import (
     DischargeSerializer,
     CustomTokenObtainPairSerializer,
     UserSerializer,
-    
 )
 from .permissions import IsAdminUserOrReadOnly, IsDoctorUser
 
@@ -22,23 +21,19 @@ class RootView(APIView):
     def get(self, request):
         return Response({"message": "Welcome to Quick Care MD API. Please use the appropriate endpoints."})
 
-class RegisterAdminView(APIView):
-    def post(self, request):
-        # Ensure the role is set to 'admin'
-        request.data['role'] = 'admin'
-        serializer = UserSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            # Log or return the detailed errors for debugging
-            print(serializer.errors)  # Logs errors to the console
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 # Custom JWT login view to include roles and other claims
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+# Admin Registration View
+class RegisterAdminView(APIView):
+    def post(self, request):
+        request.data['role'] = 'admin'  # Automatically assign role as 'admin'
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # Doctor List and Creation (Admin Only)
 class DoctorListCreateView(generics.ListCreateAPIView):
@@ -47,7 +42,8 @@ class DoctorListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def perform_create(self, serializer):
-        serializer.save()
+        user = self.request.user
+        serializer.save(user=user)  # Associate doctor with the logged-in user
 
 # Doctor Detail, Update, Delete (Admin Only)
 class DoctorDetailView(generics.RetrieveUpdateDestroyAPIView):
