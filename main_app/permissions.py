@@ -17,3 +17,12 @@ class IsDoctorUser(permissions.BasePermission):
     """
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == 'doctor'
+    
+from rest_framework import permissions
+
+class IsAdminWithRole(permissions.BasePermission):
+    """
+    Custom permission to check if the user is both a staff and has the 'admin' role.
+    """
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_staff and request.user.role == 'admin'
