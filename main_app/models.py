@@ -21,11 +21,19 @@ class User(AbstractUser):
         blank=True
     )
 
+    # Override save method to create a Doctor if role is doctor
+    def save(self, *args, **kwargs):
+        super(User, self).save(*args, **kwargs)  # Save the user first
+        # Automatically create a Doctor if the role is doctor and there is no associated doctor
+        if self.role == 'doctor' and not hasattr(self, 'doctor'):
+            Doctor.objects.create(user=self, name=self.username)
+
     def delete(self, *args, **kwargs):
         if self.role == 'admin':
             if Doctor.objects.exists() or Patient.objects.exists():
                 raise ValidationError("Cannot delete admin while doctors or patients exist. Please reassign or remove them before proceeding.")
         super(User, self).delete(*args, **kwargs)
+
 
 class Doctor(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -47,6 +55,7 @@ class Doctor(models.Model):
             raise ValidationError("Cannot delete a doctor while they have active patients.")
         super(Doctor, self).delete(*args, **kwargs)
 
+
 class Patient(models.Model):
     name = models.CharField(max_length=100)
     time_admitted = models.DateTimeField(auto_now_add=True)
@@ -56,12 +65,14 @@ class Patient(models.Model):
     def __str__(self):
         return self.name
 
+
 class Disease(models.Model):
     name = models.CharField(max_length=100)
     is_terminal = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
+
 
 class Treatment(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
@@ -88,6 +99,7 @@ class Treatment(models.Model):
                 self.doctor.incorrect_treatments -= 1
             self.doctor.save()
         super(Treatment, self).save(*args, **kwargs)
+
 
 class Discharge(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)

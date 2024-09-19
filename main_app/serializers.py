@@ -8,21 +8,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'password', 'role']
         extra_kwargs = {
-            'password': {'write_only': True},  # Password should not be exposed in the API
-            'role': {'required': True},  # Ensure role is required
+            'password': {'write_only': True},
+            'role': {'required': True},
         }
-
-    def validate_password(self, value):
-        """Ensure the password meets security requirements."""
-        if len(value) < 8:
-            raise serializers.ValidationError("Password must be at least 8 characters long.")
-        return value
-
-    def validate_role(self, value):
-        """Ensure the role is either 'admin' or 'doctor'."""
-        if value not in ['admin', 'doctor']:
-            raise serializers.ValidationError("Invalid role. Must be either 'admin' or 'doctor'.")
-        return value
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -32,24 +20,41 @@ class UserSerializer(serializers.ModelSerializer):
         if role in ['admin', 'doctor']:
             user.is_staff = True
         user.save()
+
+        # Create a Doctor instance when the role is 'doctor'
+        if role == 'doctor':
+            Doctor.objects.create(user=user, name=user.username)  # Create the doctor here
+
         return user
 
 # DoctorSerializer for creating doctor users
 class DoctorSerializer(serializers.ModelSerializer):
-    user = UserSerializer(write_only=True)  # This allows the user data to be provided during doctor creation
+    user = UserSerializer()  # Nesting the User serializer inside the Doctor serializer
 
     class Meta:
         model = Doctor
-        fields = ['id', 'user', 'name', 'incorrect_treatments']
+        fields = ['id', 'name', 'user', 'incorrect_treatments']
 
     def create(self, validated_data):
-        # Extract user data and create the user first
+        # Extract user data from the nested serializer
         user_data = validated_data.pop('user')
-        user_serializer = UserSerializer(data=user_data)
-        user_serializer.is_valid(raise_exception=True)
-        user = user_serializer.save()
+        password = user_data.pop('password')  # Handle password separately
 
-        # Create the doctor with the newly created user
+        # Check if the user with the given username already exists
+        user, created = User.objects.get_or_create(
+            username=user_data['username'],
+            defaults={'role': 'doctor', **user_data}  # Set defaults for new users
+        )
+        if created:
+            # If the user is newly created, set the password
+            user.set_password(password)
+            user.save()
+
+        # If user already exists but isn't a doctor, raise a validation error
+        elif user.role != 'doctor':
+            raise serializers.ValidationError("User already exists but isn't a doctor.")
+
+        # Create the doctor profile and associate it with the user
         doctor = Doctor.objects.create(user=user, **validated_data)
         return doctor
 
@@ -62,11 +67,13 @@ class PatientSerializer(serializers.ModelSerializer):
         model = Patient
         fields = ['id', 'name', 'time_admitted', 'diseases', 'doctor']
 
+
 # DiseaseSerializer for listing diseases
 class DiseaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Disease
         fields = ['id', 'name', 'is_terminal']
+
 
 # TreatmentSerializer for creating treatments for patients
 class TreatmentSerializer(serializers.ModelSerializer):
@@ -88,6 +95,7 @@ class TreatmentSerializer(serializers.ModelSerializer):
         
         return data
 
+
 # DischargeSerializer for managing patient discharges
 class DischargeSerializer(serializers.ModelSerializer):
     patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
@@ -95,6 +103,7 @@ class DischargeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Discharge
         fields = ['id', 'patient', 'discharge_date']
+
 
 # Custom TokenObtainPairSerializer to include role in JWT token
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
