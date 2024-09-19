@@ -1,3 +1,4 @@
+# urls.py
 from django.urls import path
 from .views import (
     UserListView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),
     path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
     path('users/register/', RegisterAdminView.as_view(), name='register_admin'),
+    
     # Doctor management
     path('doctors/', DoctorListCreateView.as_view(), name='doctor-list-create'),
     path('doctors/<int:pk>/', DoctorDetailView.as_view(), name='doctor-detail'),
