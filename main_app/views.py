@@ -51,45 +51,40 @@ class UserListView(generics.ListAPIView):
 class UserDetailView(generics.RetrieveDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    lookup_field = 'pk'  # This will match the <int:pk> in your URL
-    permission_classes = [permissions.IsAdminUser] 
+    lookup_field = 'pk'
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()  # This will call the custom delete() in your model
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT) 
 
 # Doctor List and Creation (Admin Only)
+# views.py
 class DoctorListCreateView(generics.ListCreateAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorSerializer
     permission_classes = [permissions.IsAdminUser]  # Only admins can create doctors
 
     def perform_create(self, serializer):
-        logger.debug(f"User attempting to create doctor: {self.request.user.username}")
-
-        # Ensure that only staff/admin users can create doctors
-        if not self.request.user.is_staff:
-            logger.error(f"Permission denied for user: {self.request.user.username}")
-            raise PermissionDenied("You must be an admin to create a doctor.")
-
-        # Extract user data from the request to create a user for the doctor
         user_data = self.request.data.get('user')
-        if not user_data:
-            logger.error("No user data provided.")
-            raise serializers.ValidationError('User data is required to create a doctor.')
 
-        # Create the user object with the role 'doctor'
+        if not user_data:
+            raise serializers.ValidationError("User data is required to create a doctor.")
+
+        # Check if the user already exists in the User model
+        user = User.objects.filter(username=user_data['username']).first()
+
+        if user and hasattr(user, 'doctor'):
+            raise serializers.ValidationError(f"Doctor already exists for user {user.username}.")
+
+        # Proceed to create the doctor and the user if necessary
         user_serializer = UserSerializer(data=user_data)
         if user_serializer.is_valid():
-            user = user_serializer.save(role='doctor')  # Save the user with 'doctor' role
-            logger.info(f"User {user.username} created successfully.")
-
-            # Now, create the Doctor object and associate it with the created User
-            try:
-                logger.debug(f"Attempting to create doctor for user {user.username}")
-                serializer.save(user=user)  # Save the doctor with the created user
-                logger.info(f"Doctor created successfully for user: {user.username}")
-            except Exception as e:
-                logger.error(f"Failed to create doctor: {str(e)}")
-                raise serializers.ValidationError(f"Failed to create doctor: {str(e)}")
+            user = user_serializer.save(role='doctor')
+            serializer.save(user=user)
         else:
-            logger.error(f"User creation failed: {user_serializer.errors}")
             raise serializers.ValidationError(user_serializer.errors)
 
 # Doctor Detail, Update, Delete (Admin Only)

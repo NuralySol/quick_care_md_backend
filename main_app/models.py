@@ -23,9 +23,15 @@ class User(AbstractUser):
 
     # Override save method to create a Doctor if role is doctor
     def save(self, *args, **kwargs):
+        is_new_doctor = self.pk is None and self.role == 'doctor'
         super(User, self).save(*args, **kwargs)  # Save the user first
-        # Automatically create a Doctor if the role is doctor and there is no associated doctor
+    
+    # Automatically create a Doctor if the role is doctor and there's no associated doctor
         if self.role == 'doctor' and not hasattr(self, 'doctor'):
+            Doctor.objects.create(user=self, name=self.username)
+
+    # Handle role update from non-doctor to doctor
+        if self.role == 'doctor' and not is_new_doctor and not hasattr(self, 'doctor'):
             Doctor.objects.create(user=self, name=self.username)
 
     def delete(self, *args, **kwargs):

@@ -1,1 +1,0 @@
-[{"model": "main_app.treatment", "pk": 2, "fields": {"patient": 1, "doctor": 1, "treatment_options": "Insulin therapy, Lifestyle changes", "success": false}}]
