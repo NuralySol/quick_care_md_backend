@@ -101,7 +101,7 @@ DATABASES = {
         'USER': 'hospital_admin',  # Your PostgreSQL user
         'PASSWORD': 'password',  # Your PostgreSQL password is 'password'
         'HOST': 'localhost',  # The host (usually localhost)
-        'PORT': '',  
+        'PORT': '5432',  # The port (usually 5432)
     }
 }
 

@@ -43,7 +43,7 @@ class RegisterAdminView(APIView):
 
 # User List (Admin Only)
 class UserListView(generics.ListAPIView):
-    queryset = User.objects.all()  # Fetch all users
+    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]  # Only admin can view all users
 
@@ -61,7 +61,6 @@ class UserDetailView(generics.RetrieveDestroyAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT) 
 
 # Doctor List and Creation (Admin Only)
-# views.py
 class DoctorListCreateView(generics.ListCreateAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorSerializer
@@ -107,21 +106,44 @@ class PatientListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         doctor = self.request.user.doctor
+        logger.info(f"Doctor {doctor.user.username} is attempting to create a new patient.")
 
-        # Assign random diseases
-        diseases = Disease.objects.all()
-        if diseases.exists():
-            num_diseases = random.randint(1, 3)
-            random_diseases = random.sample(list(diseases), num_diseases)
-        else:
-            raise ValidationError("No diseases available to assign.")
+        # Hardcoded diseases instead of fetching from the database
+        available_diseases = [
+            {'disease_id': 1, 'name': 'Diabetes', 'is_terminal': False},
+            {'disease_id': 2, 'name': 'Hypertension', 'is_terminal': False},
+            {'disease_id': 3, 'name': 'Heart Disease', 'is_terminal': False},
+            {'disease_id': 4, 'name': 'Cancer', 'is_terminal': True},
+            {'disease_id': 5, 'name': 'Chronic Kidney Disease', 'is_terminal': True},
+            {'disease_id': 6, 'name': 'Asthma', 'is_terminal': False},
+            {'disease_id': 7, 'name': 'COVID-19', 'is_terminal': False},
+            {'disease_id': 8, 'name': 'Influenza', 'is_terminal': False}
+        ]
 
-        # Save the patient and assign the diseases
+        # Save diseases to the database if they do not already exist
+        for disease_data in available_diseases:
+            Disease.objects.get_or_create(disease_id=disease_data['disease_id'], defaults={
+                'name': disease_data['name'],
+                'is_terminal': disease_data['is_terminal']
+            })
+
+        # Randomly assign 1-3 diseases to the patient
+        num_diseases = random.randint(1, 3)
+        random_diseases = random.sample(available_diseases, num_diseases)
+        logger.info(f"Random diseases assigned: {[d['name'] for d in random_diseases]}")
+
+        # Create the patient without diseases first
         patient = serializer.save(doctor=doctor)
-        patient.disease.set(random_diseases)
 
-        # Create treatments dynamically for each disease
-        for disease in random_diseases:
+        # Fetch the diseases from the database and assign them to the patient
+        disease_instances = Disease.objects.filter(disease_id__in=[d['disease_id'] for d in random_diseases])
+        patient.disease.set(disease_instances)
+
+        logger.info(f"Patient {patient.name} created successfully with doctor {doctor.user.username}.")
+
+        # Hardcoded treatments for each disease
+        for disease in disease_instances:
+            treatment_success = random.choice([True, False])
             Treatment.objects.create(
                 patient=patient,
                 doctor=doctor,
@@ -135,8 +157,9 @@ class PatientListCreateView(generics.ListCreateAPIView):
                     "Supportive care, Antiviral medications",
                     "Antiviral drugs, Rest and hydration"
                 ]),
-                success=random.choice([True, False])
+                success=treatment_success
             )
+            logger.info(f"Assigned treatment for {disease.name}, success: {treatment_success}")
         
 # Patient Detail, Update, Delete (Doctors Only)
 class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -168,14 +191,14 @@ class TreatmentListCreateView(generics.ListCreateAPIView):
         # Validate the treatment against the patient's diseases
         treatment_name = self.request.data.get('treatment_options')
         valid_treatments = [
-            "Insulin therapy, Lifestyle changes",
-            "ACE inhibitors, Lifestyle changes",
-            "Medication, Bypass surgery, Lifestyle changes",
-            "Chemotherapy, Radiation therapy, Surgery",
-            "Dialysis, Kidney transplant",
-            "Inhalers, Steroids, Avoiding triggers",
-            "Supportive care, Antiviral medications",
-            "Antiviral drugs, Rest and hydration"
+            {"treatment_id": 1, "treatment_options": "Insulin therapy, Lifestyle changes"},
+            {"treatment_id": 2, "treatment_options": "ACE inhibitors, Lifestyle changes"},
+            {"treatment_id": 3, "treatment_options": "Medication, Bypass surgery, Lifestyle changes"},
+            {"treatment_id": 4, "treatment_options": "Chemotherapy, Radiation therapy, Surgery"},
+            {"treatment_id": 5, "treatment_options": "Dialysis, Kidney transplant"},
+            {"treatment_id": 6, "treatment_options": "Inhalers, Steroids, Avoiding triggers"},
+            {"treatment_id": 7, "treatment_options": "Supportive care, Antiviral medications"},
+            {"treatment_id": 8, "treatment_options": "Antiviral drugs, Rest and hydration"}
         ]
 
         if treatment_name not in valid_treatments:

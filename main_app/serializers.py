@@ -27,13 +27,37 @@ class UserSerializer(serializers.ModelSerializer):
 
         return user
 
+
+# PatientSerializer for creating and managing patients
+class PatientSerializer(serializers.ModelSerializer):
+    # Define the disease field (note the use of 'disease' instead of 'diseases')
+    disease = serializers.PrimaryKeyRelatedField(many=True, queryset=Disease.objects.all())
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'name', 'time_admitted', 'disease', 'doctor']
+
+    def create(self, validated_data):
+        # Pop the disease data from the validated data
+        disease_data = validated_data.pop('disease', [])
+        
+        # Create the patient without diseases first
+        patient = Patient.objects.create(**validated_data)
+        
+        # Assign diseases after creation
+        patient.disease.set(disease_data)
+        
+        return patient
+
+
 # DoctorSerializer for creating doctor users
 class DoctorSerializer(serializers.ModelSerializer):
-    user = UserSerializer()  # Nesting the User serializer inside the Doctor serializer
+    user = UserSerializer()
+    patients = PatientSerializer(many=True, read_only=True, source='patient_set')
 
     class Meta:
         model = Doctor
-        fields = ['id', 'name', 'user', 'incorrect_treatments']
+        fields = ['id', 'name', 'user', 'incorrect_treatments', 'patients']
 
     def create(self, validated_data):
         # Extract user data from the nested serializer
@@ -58,21 +82,12 @@ class DoctorSerializer(serializers.ModelSerializer):
         doctor = Doctor.objects.create(user=user, **validated_data)
         return doctor
 
-# PatientSerializer for creating and managing patients
-class PatientSerializer(serializers.ModelSerializer):
-    doctor = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all())
-    diseases = serializers.PrimaryKeyRelatedField(many=True, queryset=Disease.objects.all())
-
-    class Meta:
-        model = Patient
-        fields = ['id', 'name', 'time_admitted', 'diseases', 'doctor']
-
 
 # DiseaseSerializer for listing diseases
 class DiseaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Disease
-        fields = ['id', 'name', 'is_terminal']
+        fields = ['disease_id', 'name', 'is_terminal']
 
 
 # TreatmentSerializer for creating treatments for patients
@@ -82,15 +97,27 @@ class TreatmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Treatment
-        fields = ['id', 'patient', 'doctor', 'treatment_options', 'success']
+        fields = ['treatment_id', 'patient', 'doctor', 'treatment_options', 'success']
 
     def validate(self, data):
         """Ensure the treatment is applicable to the patient's disease."""
         patient = data['patient']
         treatment_options = data['treatment_options']
-        applicable_treatments = [t.name for t in patient.disease.treatments.all()]
         
-        if treatment_options not in applicable_treatments:
+        # Assuming you have a valid list of treatments, hardcoded or from Disease model
+        # You can adjust this logic if the data model for treatment options changes
+        valid_treatments = [
+            "Insulin therapy, Lifestyle changes",
+            "ACE inhibitors, Lifestyle changes",
+            "Medication, Bypass surgery, Lifestyle changes",
+            "Chemotherapy, Radiation therapy, Surgery",
+            "Dialysis, Kidney transplant",
+            "Inhalers, Steroids, Avoiding triggers",
+            "Supportive care, Antiviral medications",
+            "Antiviral drugs, Rest and hydration"
+        ]
+
+        if treatment_options not in valid_treatments:
             raise serializers.ValidationError(f"{treatment_options} is not valid for the patient's disease.")
         
         return data
@@ -102,7 +129,7 @@ class DischargeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Discharge
-        fields = ['id', 'patient', 'discharge_date']
+        fields = ['discharge_id', 'patient', 'discharge_date']
 
 
 # Custom TokenObtainPairSerializer to include role in JWT token

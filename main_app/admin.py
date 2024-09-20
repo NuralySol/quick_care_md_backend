@@ -32,6 +32,8 @@ class DiseaseAdmin(admin.ModelAdmin):
 class TreatmentAdmin(admin.ModelAdmin):
     list_display = ('patient', 'doctor', 'treatment_options', 'success')
     search_fields = ('patient__name', 'doctor__name')
+    list_filter = ('success', 'doctor')  # Add filters by success and doctor
+    ordering = ('-patient',)  # Sort by patient
 
 # Register the Discharge model
 @admin.register(Discharge)

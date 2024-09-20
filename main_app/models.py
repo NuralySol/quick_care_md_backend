@@ -26,11 +26,11 @@ class User(AbstractUser):
         is_new_doctor = self.pk is None and self.role == 'doctor'
         super(User, self).save(*args, **kwargs)  # Save the user first
     
-    # Automatically create a Doctor if the role is doctor and there's no associated doctor
+        # Automatically create a Doctor if the role is doctor and there's no associated doctor
         if self.role == 'doctor' and not hasattr(self, 'doctor'):
             Doctor.objects.create(user=self, name=self.username)
 
-    # Handle role update from non-doctor to doctor
+        # Handle role update from non-doctor to doctor
         if self.role == 'doctor' and not is_new_doctor and not hasattr(self, 'doctor'):
             Doctor.objects.create(user=self, name=self.username)
 
@@ -66,13 +66,14 @@ class Patient(models.Model):
     name = models.CharField(max_length=100)
     time_admitted = models.DateTimeField(auto_now_add=True)
     disease = models.ManyToManyField('Disease')
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='patients')  # Add related_name
 
     def __str__(self):
         return self.name
 
 
 class Disease(models.Model):
+    disease_id = models.AutoField(primary_key=True)  # Use auto-increment for disease ID
     name = models.CharField(max_length=100)
     is_terminal = models.BooleanField(default=False)
 
@@ -81,6 +82,7 @@ class Disease(models.Model):
 
 
 class Treatment(models.Model):
+    treatment_id = models.AutoField(primary_key=True)  # Auto-incrementing primary key
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
     treatment_options = models.TextField()
@@ -108,6 +110,7 @@ class Treatment(models.Model):
 
 
 class Discharge(models.Model):
+    discharge_id = models.AutoField(primary_key=True) 
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     discharged = models.BooleanField(default=False)
     discharge_date = models.DateTimeField(auto_now_add=True)  # Track discharge date
