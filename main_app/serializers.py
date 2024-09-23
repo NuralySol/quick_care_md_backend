@@ -23,23 +23,23 @@ class UserSerializer(serializers.ModelSerializer):
 
         # Create a Doctor instance when the role is 'doctor'
         if role == 'doctor':
-            Doctor.objects.create(user=user, name=user.username)  # Create the doctor here
+            Doctor.objects.create(user=user, name=user.username)
 
         return user
 
 
 # PatientSerializer for creating and managing patients
 class PatientSerializer(serializers.ModelSerializer):
-    # Define the disease field (note the use of 'disease' instead of 'diseases')
-    disease = serializers.PrimaryKeyRelatedField(many=True, queryset=Disease.objects.all())
+    disease = serializers.PrimaryKeyRelatedField(many=True, queryset=Disease.objects.all())  # ManyToMany field
 
     class Meta:
         model = Patient
         fields = ['id', 'name', 'time_admitted', 'disease', 'doctor']
 
     def create(self, validated_data):
-        # Pop the disease data from the validated data
         disease_data = validated_data.pop('disease', [])
+        if not disease_data:
+            raise serializers.ValidationError("No valid diseases selected for the patient.")
         
         # Create the patient without diseases first
         patient = Patient.objects.create(**validated_data)
@@ -53,7 +53,7 @@ class PatientSerializer(serializers.ModelSerializer):
 # DoctorSerializer for creating doctor users
 class DoctorSerializer(serializers.ModelSerializer):
     user = UserSerializer()
-    patients = PatientSerializer(many=True, read_only=True, source='patient_set')
+    patients = PatientSerializer(many=True, read_only=True)
 
     class Meta:
         model = Doctor
@@ -103,9 +103,7 @@ class TreatmentSerializer(serializers.ModelSerializer):
         """Ensure the treatment is applicable to the patient's disease."""
         patient = data['patient']
         treatment_options = data['treatment_options']
-        
-        # Assuming you have a valid list of treatments, hardcoded or from Disease model
-        # You can adjust this logic if the data model for treatment options changes
+
         valid_treatments = [
             "Insulin therapy, Lifestyle changes",
             "ACE inhibitors, Lifestyle changes",

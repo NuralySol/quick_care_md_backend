@@ -1,6 +1,7 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+
 
 # Custom user model for both doctors and hospital admin
 class User(AbstractUser):
@@ -82,30 +83,33 @@ class Disease(models.Model):
 
 
 class Treatment(models.Model):
-    treatment_id = models.AutoField(primary_key=True)  # Auto-incrementing primary key
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
+    treatment_id = models.AutoField(primary_key=True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, null=True, blank=True)
+    disease = models.ForeignKey(Disease, on_delete=models.CASCADE, related_name='treatments', null=True, blank=True)
     treatment_options = models.TextField()
-    success = models.BooleanField(default=False)  # Field to track whether the treatment is correct
+    success = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.patient.name} - {self.treatment_options}"
+        patient_name = self.patient.name if self.patient else "Unknown Patient"
+        return f"{patient_name} - {self.treatment_options}"
 
+    @transaction.atomic  # Ensure atomic transactions
     def save(self, *args, **kwargs):
         """Custom save method to check treatment success"""
-        if not self.pk:  # New treatment
-            super(Treatment, self).save(*args, **kwargs)
+        if self.pk:  # Updating an existing treatment
+            old_treatment = Treatment.objects.get(pk=self.pk)
+            if old_treatment.success != self.success:
+                if self.success:  # Marking as successful
+                    self.doctor.incorrect_treatments -= 1
+                else:  # Marking as incorrect
+                    self.doctor.incorrect_treatments += 1
+        else:
+            # New treatment being created
             if not self.success:
                 self.doctor.incorrect_treatments += 1
-                self.doctor.save()
-        else:
-            # Handle updates to avoid incrementing on every save
-            old_treatment = Treatment.objects.get(pk=self.pk)
-            if old_treatment.success and not self.success:
-                self.doctor.incorrect_treatments += 1
-            elif not old_treatment.success and self.success:
-                self.doctor.incorrect_treatments -= 1
-            self.doctor.save()
+
+        self.doctor.save()
         super(Treatment, self).save(*args, **kwargs)
 
 
