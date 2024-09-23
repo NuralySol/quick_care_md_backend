@@ -1,0 +1,10 @@
+[
+    {"model": "main_app.disease", "pk": 1, "fields": {"name": "Diabetes", "is_terminal": false}},
+    {"model": "main_app.disease", "pk": 2, "fields": {"name": "Hypertension", "is_terminal": false}},
+    {"model": "main_app.disease", "pk": 3, "fields": {"name": "Heart Disease", "is_terminal": false}},
+    {"model": "main_app.disease", "pk": 4, "fields": {"name": "Cancer", "is_terminal": true}},
+    {"model": "main_app.disease", "pk": 5, "fields": {"name": "Chronic Kidney Disease", "is_terminal": true}},
+    {"model": "main_app.disease", "pk": 6, "fields": {"name": "Asthma", "is_terminal": false}},
+    {"model": "main_app.disease", "pk": 7, "fields": {"name": "COVID-19", "is_terminal": false}},
+    {"model": "main_app.disease", "pk": 8, "fields": {"name": "Influenza", "is_terminal": false}}
+]

@@ -3,8 +3,9 @@ from rest_framework import serializers, generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView  
 from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
 from .models import Doctor, Patient, Disease, Treatment, Discharge, User
 from .serializers import (
     DoctorSerializer,
@@ -16,6 +17,7 @@ from .serializers import (
     UserSerializer,
 )
 from .permissions import IsAdminUserOrReadOnly, IsDoctorUser, IsAdminWithRole
+import random
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -41,89 +43,174 @@ class RegisterAdminView(APIView):
 
 # User List (Admin Only)
 class UserListView(generics.ListAPIView):
-    queryset = User.objects.all()  # Fetch all users
+    queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]  # Only admin can view all users
+    permission_classes = [permissions.IsAdminUser]
 
 # View to handle retrieve, update, and delete for a specific user
 class UserDetailView(generics.RetrieveDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    lookup_field = 'pk'  # This will match the <int:pk> in your URL
-    permission_classes = [permissions.IsAdminUser] 
+    lookup_field = 'pk'
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 # Doctor List and Creation (Admin Only)
 class DoctorListCreateView(generics.ListCreateAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorSerializer
-    permission_classes = [permissions.IsAdminUser]  # Only admins can create doctors
+    permission_classes = [permissions.IsAdminUser]
 
     def perform_create(self, serializer):
-        logger.debug(f"User attempting to create doctor: {self.request.user.username}")
-        if not self.request.user.is_staff:
-            logger.error(f"Permission denied for user: {self.request.user.username}")
-            raise PermissionDenied("You must be an admin to create a doctor.")
-
         user_data = self.request.data.get('user')
-        if user_data:
-            user_serializer = UserSerializer(data=user_data)
-            if user_serializer.is_valid():
-                user = user_serializer.save(role='doctor')  # Assign role 'doctor'
-                serializer.save(user=user)
-                logger.info(f"Doctor created successfully for user: {user.username}")
-            else:
-                logger.error(f"User creation failed: {user_serializer.errors}")
-                raise serializers.ValidationError(user_serializer.errors)
+        if not user_data:
+            raise serializers.ValidationError("User data is required to create a doctor.")
+
+        user = User.objects.filter(username=user_data['username']).first()
+
+        if user and hasattr(user, 'doctor'):
+            raise serializers.ValidationError(f"Doctor already exists for user {user.username}.")
+
+        user_serializer = UserSerializer(data=user_data)
+        if user_serializer.is_valid():
+            user = user_serializer.save(role='doctor')
+            serializer.save(user=user)
         else:
-            logger.error("No user data provided.")
-            raise serializers.ValidationError('User data is required to create a doctor.')
+            raise serializers.ValidationError(user_serializer.errors)
 
 # Doctor Detail, Update, Delete (Admin Only)
-class DoctorDetailView(generics.RetrieveUpdateDestroyAPIView):
+class DoctorDetailView(generics.RetrieveAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorSerializer
     permission_classes = [permissions.IsAdminUser]
+
+    def get_object(self):
+        user_id = self.kwargs.get('pk')  # 'pk' is the user_id passed in the URL
+        doctor = get_object_or_404(Doctor, user_id=user_id)
+        return doctor
 
 # Patient List and Creation (Doctors Only)
 class PatientListCreateView(generics.ListCreateAPIView):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = [IsDoctorUser]  # Only doctors can create patients
+    permission_classes = [IsDoctorUser]
 
     def perform_create(self, serializer):
-        doctor = self.request.user.doctor  # Assuming a user has a related doctor profile
-        serializer.save(doctor=doctor)
+        doctor = self.request.user.doctor
+        logger.info(f"Doctor {doctor.user.username} is attempting to create a new patient.")
+
+        available_diseases = Disease.objects.all()
+
+        # Randomly assign 1-3 diseases to the patient
+        num_diseases = random.randint(1, 3)
+        random_diseases = random.sample(list(available_diseases), num_diseases)
+
+        patient = serializer.save(doctor=doctor)
+
+        # Assign diseases to the patient
+        patient.disease.set(random_diseases)
+
+        # Create treatments for the assigned diseases
+        self.create_treatments_for_diseases(patient, doctor, random_diseases)
+
+    def create_treatments_for_diseases(self, patient, doctor, diseases):
+        """ Helper method to create treatments for each disease the patient has """
+        valid_treatments = {
+            "Diabetes": "Insulin therapy, Lifestyle changes",
+            "Hypertension": "ACE inhibitors, Lifestyle changes",
+            "Heart Disease": "Medication, Bypass surgery, Lifestyle changes",
+            "Cancer": "Chemotherapy, Radiation therapy, Surgery",
+            "Chronic Kidney Disease": "Dialysis, Kidney transplant",
+            "Asthma": "Inhalers, Steroids, Avoiding triggers",
+            "COVID-19": "Supportive care, Antiviral medications",
+            "Influenza": "Antiviral drugs, Rest and hydration"
+        }
+
+        for disease in diseases:
+            treatment_option = valid_treatments.get(disease.name, "")
+            success = random.choice([True, False])
+
+            Treatment.objects.create(
+                patient=patient,
+                doctor=doctor,
+                treatment_options=treatment_option,
+                success=success
+            )
+
+            logger.info(f"Assigned treatment for {disease.name}: {treatment_option}, success: {success}")
 
 # Patient Detail, Update, Delete (Doctors Only)
 class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = [IsDoctorUser]  # Only doctors can manage patients
+    permission_classes = [IsDoctorUser]
 
-# Disease List (Admin and Doctors)
-class DiseaseListView(generics.ListAPIView):
-    queryset = Disease.objects.all()
-    serializer_class = DiseaseSerializer
-    permission_classes = [permissions.IsAuthenticated]  # Both admins and doctors can view diseases
+    def get_queryset(self):
+        return Patient.objects.filter(doctor=self.request.user.doctor)
 
 # Treatment List and Creation (Doctors Only)
 class TreatmentListCreateView(generics.ListCreateAPIView):
     queryset = Treatment.objects.all()
     serializer_class = TreatmentSerializer
-    permission_classes = [IsDoctorUser]  # Only doctors can manage treatments
+    permission_classes = [IsDoctorUser]
 
     def perform_create(self, serializer):
-        doctor = self.request.user.doctor  # Assuming a user has a related doctor profile
+        doctor = self.request.user.doctor
+        patient = serializer.validated_data['patient']
+
+        diseases = patient.disease.all()
+        treatment_options = serializer.validated_data['treatment_options']
+
+        valid_treatments = [
+            "Insulin therapy, Lifestyle changes",
+            "ACE inhibitors, Lifestyle changes",
+            "Medication, Bypass surgery, Lifestyle changes",
+            "Chemotherapy, Radiation therapy, Surgery",
+            "Dialysis, Kidney transplant",
+            "Inhalers, Steroids, Avoiding triggers",
+            "Supportive care, Antiviral medications",
+            "Antiviral drugs, Rest and hydration"
+        ]
+
+        if treatment_options not in valid_treatments:
+            raise serializers.ValidationError(f"{treatment_options} is not valid for the patient's disease.")
+
         serializer.save(doctor=doctor)
+
+# Disease List (Admin and Doctors)
+class DiseaseListView(generics.ListAPIView):
+    queryset = Disease.objects.all()
+    serializer_class = DiseaseSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 # Treatment Detail, Update, Delete (Doctors Only)
 class TreatmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Treatment.objects.all()
     serializer_class = TreatmentSerializer
-    permission_classes = [IsDoctorUser]  # Only doctors can update/delete treatments
+    permission_classes = [IsDoctorUser]
 
 # Discharge List (Admin Only)
 class DischargeListView(generics.ListAPIView):
     queryset = Discharge.objects.all()
     serializer_class = DischargeSerializer
-    permission_classes = [permissions.IsAdminUser]  # Only admins can view discharges
+    permission_classes = [permissions.IsAdminUser]
+
+# Discharge a patient (Doctors Only)
+class DischargePatientView(APIView):
+    permission_classes = [IsDoctorUser]
+
+    def post(self, request, patient_id):
+        patient = get_object_or_404(Patient, id=patient_id)
+        discharge = Discharge.objects.create(patient=patient, doctor=request.user.doctor)
+        patient.is_active = False
+        patient.save()
+
+        return Response({
+            "message": f"Patient {patient.name} has been successfully discharged.",
+            "discharge": DischargeSerializer(discharge).data
+        })

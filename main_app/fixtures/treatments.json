@@ -1,0 +1,10 @@
+[
+    {"model": "main_app.treatment", "pk": 1, "fields": {"treatment_options": "Insulin therapy, Lifestyle changes", "success": true}},
+    {"model": "main_app.treatment", "pk": 2, "fields": {"treatment_options": "ACE inhibitors, Lifestyle changes", "success": true}},
+    {"model": "main_app.treatment", "pk": 3, "fields": {"treatment_options": "Medication, Bypass surgery, Lifestyle changes", "success": true}},
+    {"model": "main_app.treatment", "pk": 4, "fields": {"treatment_options": "Chemotherapy, Radiation therapy, Surgery", "success": true}},
+    {"model": "main_app.treatment", "pk": 5, "fields": {"treatment_options": "Dialysis, Kidney transplant", "success": true}},
+    {"model": "main_app.treatment", "pk": 6, "fields": {"treatment_options": "Inhalers, Steroids, Avoiding triggers", "success": true}},
+    {"model": "main_app.treatment", "pk": 7, "fields": {"treatment_options": "Supportive care, Antiviral medications", "success": true}},
+    {"model": "main_app.treatment", "pk": 8, "fields": {"treatment_options": "Antiviral drugs, Rest and hydration", "success": true}}
+]
