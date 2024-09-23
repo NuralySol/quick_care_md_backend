@@ -37,7 +37,6 @@ urlpatterns = [
     path('patients/<int:pk>/', PatientDetailView.as_view(), name='patient-detail'),
     path('patients/<int:patient_id>/discharge/', DischargePatientView.as_view(), name='discharge-patient'),
 
-
     # Disease list
     path('diseases/', DiseaseListView.as_view(), name='disease-list'),
 

@@ -98,9 +98,9 @@ class Disease(models.Model):
 
 class Treatment(models.Model):
     treatment_id = models.AutoField(primary_key=True)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, null=True, blank=True)
     disease = models.ForeignKey(Disease, on_delete=models.CASCADE, related_name='treatments', null=True, blank=True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)  # Add this
     treatment_options = models.TextField()
     success = models.BooleanField(default=False)
 

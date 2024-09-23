@@ -4,12 +4,31 @@ from rest_framework import permissions
 
 class IsAdminUserOrReadOnly(permissions.BasePermission):
     """
-    Custom permission to allow only admins to edit or delete, but read access is allowed to all.
+    Custom permission to allow:
+    - Admins to edit or delete patients in their Admin panel.
     """
     def has_permission(self, request, view):
+        # Safe methods like GET, HEAD, OPTIONS are allowed for everyone.
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user.is_authenticated and request.user.role == 'admin'
+        
+        # If the user is authenticated and is an admin, they can perform any action.
+        return request.user.is_authenticated and (request.user.role == 'admin' or request.user.role == 'doctor')
+
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed for all users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # Admins have full access
+        if request.user.role == 'admin':
+            return True
+        
+        # Doctors can modify only their own patients
+        if request.user.role == 'doctor' and obj.doctor == request.user.doctor:
+            return True
+
+        return False
 
 class IsDoctorUser(permissions.BasePermission):
     """

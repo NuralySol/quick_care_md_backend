@@ -33,15 +33,48 @@ class DiseaseSerializer(serializers.ModelSerializer):
         model = Disease
         fields = ['disease_id', 'name', 'is_terminal']
 
+# TreatmentSerializer for creating treatments for patients
+class TreatmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Treatment
+        fields = ['treatment_id', 'patient', 'doctor', 'treatment_options', 'success']
+
+    def create(self, validated_data):
+        treatment_options = validated_data['treatment_options']
+        patient = validated_data['patient']
+        doctor = validated_data['doctor']
+
+        # Logic to determine if the treatment is valid
+        valid_treatments = [
+            "Insulin therapy", "Lifestyle changes", "ACE inhibitors", "Bypass surgery",
+            "Chemotherapy", "Radiation therapy", "Surgery", "Dialysis", "Kidney transplant",
+            "Inhalers", "Steroids", "Antiviral medications", "Rest and hydration"
+        ]
+        success = treatment_options in valid_treatments
+
+        treatment = Treatment.objects.create(
+            patient=patient,
+            doctor=doctor,
+            treatment_options=treatment_options,
+            success=success
+        )
+
+        if not success:
+            doctor.incorrect_treatments += 1
+            doctor.save()
+
+        return treatment
+
 # PatientSerializer for creating and managing patients
 class PatientSerializer(serializers.ModelSerializer):
     # Use DiseaseSerializer to accept full disease objects
     disease = DiseaseSerializer(many=True)
     doctor = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all())
+    treatments = TreatmentSerializer(many=True, read_only=True)  # Add treatments to patient response
 
     class Meta:
         model = Patient
-        fields = ['id', 'name', 'time_admitted', 'disease', 'doctor']
+        fields = ['id', 'name', 'time_admitted', 'disease', 'doctor', 'treatments']
 
     def create(self, validated_data):
         # Extract disease data
@@ -87,7 +120,6 @@ class PatientSerializer(serializers.ModelSerializer):
 
         return instance
 
-
 # DoctorSerializer for creating doctor users
 class DoctorSerializer(serializers.ModelSerializer):
     user = UserSerializer()
@@ -120,47 +152,14 @@ class DoctorSerializer(serializers.ModelSerializer):
         doctor = Doctor.objects.create(user=user, **validated_data)
         return doctor
 
-# TreatmentSerializer for creating treatments for patients
-class TreatmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Treatment
-        fields = ['treatment_id', 'patient', 'doctor', 'treatment_options', 'success']
-
-    def create(self, validated_data):
-        treatment_options = validated_data['treatment_options']
-        patient = validated_data['patient']
-        doctor = validated_data['doctor']
-
-        # Logic to determine if the treatment is valid
-        valid_treatments = [
-            "Insulin therapy", "Lifestyle changes", "ACE inhibitors", "Bypass surgery",
-            "Chemotherapy", "Radiation therapy", "Surgery", "Dialysis", "Kidney transplant",
-            "Inhalers", "Steroids", "Antiviral medications", "Rest and hydration"
-        ]
-        success = treatment_options in valid_treatments
-
-        treatment = Treatment.objects.create(
-            patient=patient,
-            doctor=doctor,
-            treatment_options=treatment_options,
-            success=success
-        )
-
-        if not success:
-            doctor.incorrect_treatments += 1
-            doctor.save()
-
-        return treatment
-
-
 # DischargeSerializer for managing patient discharges
 class DischargeSerializer(serializers.ModelSerializer):
-    patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
+    patient_name = serializers.CharField(source='patient.name', read_only=True)  # Patient's name
+    doctor_name = serializers.CharField(source='patient.doctor.user.username', read_only=True)  # Doctor's username
 
     class Meta:
         model = Discharge
-        fields = ['discharge_id', 'patient', 'discharge_date']
-
+        fields = ['discharge_id', 'patient_name', 'doctor_name', 'discharge_date', 'discharged']  
 
 # Custom TokenObtainPairSerializer to include role in JWT token
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
