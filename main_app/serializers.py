@@ -26,11 +26,17 @@ class UserSerializer(serializers.ModelSerializer):
             Doctor.objects.create(user=user, name=user.username)
 
         return user
+    
+# DiseaseSerializer for listing diseases
+class DiseaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Disease
+        fields = ['disease_id', 'name', 'is_terminal']
 
 
 # PatientSerializer for creating and managing patients
 class PatientSerializer(serializers.ModelSerializer):
-    disease = serializers.PrimaryKeyRelatedField(many=True, queryset=Disease.objects.all())  # ManyToMany field
+    disease = DiseaseSerializer(many=True)   # ManyToMany field
 
     class Meta:
         model = Patient
@@ -81,14 +87,6 @@ class DoctorSerializer(serializers.ModelSerializer):
         # Create the doctor profile and associate it with the user
         doctor = Doctor.objects.create(user=user, **validated_data)
         return doctor
-
-
-# DiseaseSerializer for listing diseases
-class DiseaseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Disease
-        fields = ['disease_id', 'name', 'is_terminal']
-
 
 # TreatmentSerializer for creating treatments for patients
 class TreatmentSerializer(serializers.ModelSerializer):
