@@ -81,6 +81,20 @@ class Disease(models.Model):
     def __str__(self):
         return self.name
 
+    # Method to return valid treatments for each disease
+    def get_valid_treatments(self):
+        valid_treatments = {
+            "Diabetes": ["Insulin therapy", "Lifestyle changes"],
+            "Hypertension": ["ACE inhibitors", "Lifestyle changes"],
+            "Heart Disease": ["Medication", "Bypass surgery", "Lifestyle changes"],
+            "Cancer": ["Chemotherapy", "Radiation therapy", "Surgery"],
+            "Chronic Kidney Disease": ["Dialysis", "Kidney transplant"],
+            "Asthma": ["Inhalers", "Steroids", "Avoiding triggers"],
+            "COVID-19": ["Supportive care", "Antiviral medications"],
+            "Influenza": ["Antiviral drugs", "Rest and hydration"]
+        }
+        return valid_treatments.get(self.name, [])
+
 
 class Treatment(models.Model):
     treatment_id = models.AutoField(primary_key=True)
