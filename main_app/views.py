@@ -162,25 +162,26 @@ class TreatmentListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         doctor = self.request.user.doctor
         patient = serializer.validated_data['patient']
-
-        diseases = patient.disease.all()
         treatment_options = serializer.validated_data['treatment_options']
 
-        valid_treatments = [
-            "Insulin therapy, Lifestyle changes",
-            "ACE inhibitors, Lifestyle changes",
-            "Medication, Bypass surgery, Lifestyle changes",
-            "Chemotherapy, Radiation therapy, Surgery",
-            "Dialysis, Kidney transplant",
-            "Inhalers, Steroids, Avoiding triggers",
-            "Supportive care, Antiviral medications",
-            "Antiviral drugs, Rest and hydration"
-        ]
+        diseases = patient.disease.all()
+        treatment_is_valid = False
 
-        if treatment_options not in valid_treatments:
-            raise serializers.ValidationError(f"{treatment_options} is not valid for the patient's disease.")
+        # Check validity against each disease the patient has
+        for disease in diseases:
+            if treatment_options in disease.get_valid_treatments():  # Use predefined treatments
+                treatment_is_valid = True
+                break
 
-        serializer.save(doctor=doctor)
+        # Log performance without blocking assignment (like hangman)
+        if not treatment_is_valid:
+            doctor.incorrect_treatments += 1
+            logger.warning(f"Invalid treatment option: {treatment_options} assigned to patient {patient.name}")
+        else:
+            logger.info(f"Valid treatment option: {treatment_options} assigned to patient {patient.name}")
+
+        doctor.save()
+        serializer.save(doctor=doctor, success=treatment_is_valid)
 
 # Disease List (Admin and Doctors)
 class DiseaseListView(generics.ListAPIView):
@@ -194,6 +195,28 @@ class TreatmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TreatmentSerializer
     permission_classes = [IsDoctorUser]
 
+# Treatment Options View (Doctors Only)
+class TreatmentOptionsView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        treatment_options = [
+            "Insulin therapy",
+            "Lifestyle changes",
+            "ACE inhibitors",
+            "Bypass surgery",
+            "Chemotherapy",
+            "Radiation therapy",
+            "Surgery",
+            "Dialysis",
+            "Kidney transplant",
+            "Inhalers",
+            "Steroids",
+            "Antiviral medications",
+            "Rest and hydration"
+        ]
+        return Response(treatment_options)
+
 # Discharge List (Admin Only)
 class DischargeListView(generics.ListAPIView):
     queryset = Discharge.objects.all()
@@ -206,11 +229,44 @@ class DischargePatientView(APIView):
 
     def post(self, request, patient_id):
         patient = get_object_or_404(Patient, id=patient_id)
-        discharge = Discharge.objects.create(patient=patient, doctor=request.user.doctor)
-        patient.is_active = False
+        
+        # Mark the patient as discharged and inactive
+        discharge = Discharge.objects.create(patient=patient)  # Remove the doctor argument
+        patient.is_active = False  # Mark patient as inactive (discharged)
         patient.save()
+
+        # Notify the admin (via email or internal notification system, if needed)
+        self.notify_admin_of_discharge(patient)
 
         return Response({
             "message": f"Patient {patient.name} has been successfully discharged.",
             "discharge": DischargeSerializer(discharge).data
-        })
+        }, status=status.HTTP_200_OK)
+
+    def notify_admin_of_discharge(self, patient):
+        # Assuming there is an admin role or user
+        admin = User.objects.filter(role='admin').first()
+        if admin:
+            # You can send a report or notification to the admin
+            logger.info(f"Sending discharge report for patient {patient.name} to admin {admin.username}")
+            # Optionally, implement email sending logic or another notification method here
+            
+class FireDoctorView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, doctor_id):
+        doctor = get_object_or_404(Doctor, id=doctor_id)
+
+        if doctor.user.is_active:
+            # Deactivate the doctor
+            doctor.user.is_active = False
+            doctor.save()
+
+            # Notify admin (optional: you can implement email notification logic here)
+            return Response({
+                "message": f"Doctor {doctor.name} has been successfully deactivated."
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "message": f"Doctor {doctor.name} is already inactive."
+            }, status=status.HTTP_400_BAD_REQUEST)

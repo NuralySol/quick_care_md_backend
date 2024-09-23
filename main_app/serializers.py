@@ -33,27 +33,59 @@ class DiseaseSerializer(serializers.ModelSerializer):
         model = Disease
         fields = ['disease_id', 'name', 'is_terminal']
 
-
 # PatientSerializer for creating and managing patients
 class PatientSerializer(serializers.ModelSerializer):
-    disease = DiseaseSerializer(many=True)   # ManyToMany field
+    # Use DiseaseSerializer to accept full disease objects
+    disease = DiseaseSerializer(many=True)
+    doctor = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all())
 
     class Meta:
         model = Patient
         fields = ['id', 'name', 'time_admitted', 'disease', 'doctor']
 
     def create(self, validated_data):
-        disease_data = validated_data.pop('disease', [])
-        if not disease_data:
-            raise serializers.ValidationError("No valid diseases selected for the patient.")
+        # Extract disease data
+        disease_data = validated_data.pop('disease')
         
-        # Create the patient without diseases first
+        # Create the patient without the diseases first
         patient = Patient.objects.create(**validated_data)
-        
-        # Assign diseases after creation
-        patient.disease.set(disease_data)
-        
+
+        # Assign diseases by creating objects or fetching existing ones
+        for disease_dict in disease_data:
+            disease_obj, created = Disease.objects.get_or_create(
+                disease_id=disease_dict.get('disease_id'),
+                defaults={
+                    'name': disease_dict.get('name'),
+                    'is_terminal': disease_dict.get('is_terminal', False)
+                }
+            )
+            patient.disease.add(disease_obj)  # Add the disease to the ManyToMany field
+
         return patient
+
+    def update(self, instance, validated_data):
+        # Extract and update disease data
+        disease_data = validated_data.pop('disease', None)
+
+        # Update patient details
+        instance.name = validated_data.get('name', instance.name)
+        instance.doctor = validated_data.get('doctor', instance.doctor)
+        instance.save()
+
+        # Update diseases if provided
+        if disease_data is not None:
+            instance.disease.clear()  # Clear existing diseases
+            for disease_dict in disease_data:
+                disease_obj, created = Disease.objects.get_or_create(
+                    disease_id=disease_dict.get('disease_id'),
+                    defaults={
+                        'name': disease_dict.get('name'),
+                        'is_terminal': disease_dict.get('is_terminal', False)
+                    }
+                )
+                instance.disease.add(disease_obj)  # Add updated diseases
+
+        return instance
 
 
 # DoctorSerializer for creating doctor users
@@ -90,33 +122,35 @@ class DoctorSerializer(serializers.ModelSerializer):
 
 # TreatmentSerializer for creating treatments for patients
 class TreatmentSerializer(serializers.ModelSerializer):
-    patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all())
-    doctor = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all())
-
     class Meta:
         model = Treatment
         fields = ['treatment_id', 'patient', 'doctor', 'treatment_options', 'success']
 
-    def validate(self, data):
-        """Ensure the treatment is applicable to the patient's disease."""
-        patient = data['patient']
-        treatment_options = data['treatment_options']
+    def create(self, validated_data):
+        treatment_options = validated_data['treatment_options']
+        patient = validated_data['patient']
+        doctor = validated_data['doctor']
 
+        # Logic to determine if the treatment is valid
         valid_treatments = [
-            "Insulin therapy, Lifestyle changes",
-            "ACE inhibitors, Lifestyle changes",
-            "Medication, Bypass surgery, Lifestyle changes",
-            "Chemotherapy, Radiation therapy, Surgery",
-            "Dialysis, Kidney transplant",
-            "Inhalers, Steroids, Avoiding triggers",
-            "Supportive care, Antiviral medications",
-            "Antiviral drugs, Rest and hydration"
+            "Insulin therapy", "Lifestyle changes", "ACE inhibitors", "Bypass surgery",
+            "Chemotherapy", "Radiation therapy", "Surgery", "Dialysis", "Kidney transplant",
+            "Inhalers", "Steroids", "Antiviral medications", "Rest and hydration"
         ]
+        success = treatment_options in valid_treatments
 
-        if treatment_options not in valid_treatments:
-            raise serializers.ValidationError(f"{treatment_options} is not valid for the patient's disease.")
-        
-        return data
+        treatment = Treatment.objects.create(
+            patient=patient,
+            doctor=doctor,
+            treatment_options=treatment_options,
+            success=success
+        )
+
+        if not success:
+            doctor.incorrect_treatments += 1
+            doctor.save()
+
+        return treatment
 
 
 # DischargeSerializer for managing patient discharges
