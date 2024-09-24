@@ -77,7 +77,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'quick_care_md_backend.wsgi.application'
 
-# Database configuration
 DATABASES = {
     'default': dj_database_url.config(default=env('DATABASE_URL'))
 }
