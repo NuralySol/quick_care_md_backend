@@ -16,6 +16,7 @@ from .views import (
     FireDoctorView,
     TreatmentOptionsView,
     DischargePatientView,
+    BulkDeleteDischargedPatientsView,
 )
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from .views import CustomTokenObtainPairView  # Import custom token view
@@ -48,6 +49,7 @@ urlpatterns = [
 
     # Discharge list (viewable only by admin)
     path('discharges/', DischargeListView.as_view(), name='discharge-list'),
+    path('patients/discharged/purge/', BulkDeleteDischargedPatientsView.as_view(), name='purge-discharged-patients'),
 
     # JWT Authentication routes
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

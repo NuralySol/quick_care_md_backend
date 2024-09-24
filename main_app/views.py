@@ -300,3 +300,15 @@ class FireDoctorView(APIView):
             return Response({
                 "message": f"Doctor {doctor.name} is already inactive."
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class BulkDeleteDischargedPatientsView(APIView):
+    def delete(self, request):
+        # Delete all discharged patients
+        discharged_patients = Discharge.objects.all()
+        deleted_count = discharged_patients.count()
+        discharged_patients.delete()
+        
+        return Response(
+            {"message": f"Successfully deleted {deleted_count} discharged patients."},
+            status=status.HTTP_200_OK
+        )
