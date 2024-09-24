@@ -13,6 +13,7 @@ django-heroku = "*"
 whitenoise = "*"
 gunicorn = "*"
 djangorestframework-simplejwt = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 
