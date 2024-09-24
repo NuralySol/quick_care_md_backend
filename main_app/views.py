@@ -111,6 +111,9 @@ class PatientListCreateView(generics.ListCreateAPIView):
         random_diseases = random.sample(list(available_diseases), num_diseases)
 
         patient = serializer.save(doctor=doctor)
+        # Ensure the patient is successfully saved and has an ID
+        if patient.id is None:
+            raise serializers.ValidationError("Patient creation failed, no ID assigned.")
 
         # Assign diseases to the patient
         patient.disease.set(random_diseases)
@@ -144,14 +147,26 @@ class PatientListCreateView(generics.ListCreateAPIView):
 
             logger.info(f"Assigned treatment for {disease.name}: {treatment_option}, success: {success}")
 
-# Patient Detail, Update, Delete (Doctors Only)
+# Patient Detail, Update, Delete (Admin Only and Doctor's Patients)
 class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = [IsDoctorUser]
+    permission_classes = [IsAdminUserOrReadOnly]
+    
+    def get_object(self):
+        patient_id = self.kwargs.get('pk')
+        logger.info(f"Attempting to delete patient with ID: {patient_id}")
+        return get_object_or_404(Patient, pk=patient_id)
 
     def get_queryset(self):
+        # Admins can see all patients, doctors see only their patients
+        if self.request.user.role == 'admin':
+            return Patient.objects.all()
         return Patient.objects.filter(doctor=self.request.user.doctor)
+    
+    def delete(self, request, *args, **kwargs):
+        logger.info(f"Deleting patient with ID: {self.kwargs.get('pk')}")
+        return super().delete(request, *args, **kwargs)
 
 # Treatment List and Creation (Doctors Only)
 class TreatmentListCreateView(generics.ListCreateAPIView):
@@ -228,11 +243,18 @@ class DischargePatientView(APIView):
     permission_classes = [IsDoctorUser]
 
     def post(self, request, patient_id):
+        # Retrieve the patient to be discharged
         patient = get_object_or_404(Patient, id=patient_id)
         
+        # Check if the patient is already discharged
+        if Discharge.objects.filter(patient=patient, discharged=True).exists():
+            return Response({
+                "message": f"Patient {patient.name} is already discharged."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         # Mark the patient as discharged and inactive
-        discharge = Discharge.objects.create(patient=patient)  # Remove the doctor argument
-        patient.is_active = False  # Mark patient as inactive (discharged)
+        discharge = Discharge.objects.create(patient=patient, discharged=True)  # Set discharged to True
+        patient.is_active = False  # Mark patient as inactive (discharged), if necessary
         patient.save()
 
         # Notify the admin (via email or internal notification system, if needed)
@@ -242,6 +264,14 @@ class DischargePatientView(APIView):
             "message": f"Patient {patient.name} has been successfully discharged.",
             "discharge": DischargeSerializer(discharge).data
         }, status=status.HTTP_200_OK)
+
+    def notify_admin_of_discharge(self, patient):
+        # Assuming there is an admin role or user
+        admin = User.objects.filter(role='admin').first()
+        if admin:
+            # Log the admin notification
+            logger.info(f"Sending discharge report for patient {patient.name} to admin {admin.username}")
+            # Optionally, implement email sending logic or another notification method here
 
     def notify_admin_of_discharge(self, patient):
         # Assuming there is an admin role or user
@@ -270,3 +300,15 @@ class FireDoctorView(APIView):
             return Response({
                 "message": f"Doctor {doctor.name} is already inactive."
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class BulkDeleteDischargedPatientsView(APIView):
+    def delete(self, request):
+        # Delete all discharged patients
+        discharged_patients = Discharge.objects.all()
+        deleted_count = discharged_patients.count()
+        discharged_patients.delete()
+        
+        return Response(
+            {"message": f"Successfully deleted {deleted_count} discharged patients."},
+            status=status.HTTP_200_OK
+        )
