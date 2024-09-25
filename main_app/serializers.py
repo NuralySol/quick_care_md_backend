@@ -70,7 +70,7 @@ class PatientSerializer(serializers.ModelSerializer):
     # Use DiseaseSerializer to accept full disease objects
     disease = DiseaseSerializer(many=True)
     doctor = serializers.PrimaryKeyRelatedField(queryset=Doctor.objects.all())
-    treatments = TreatmentSerializer(many=True, read_only=True)  # Add treatments to patient response
+    treatments = TreatmentSerializer(many=True, read_only=True)  
 
     class Meta:
         model = Patient
@@ -116,7 +116,7 @@ class PatientSerializer(serializers.ModelSerializer):
                         'is_terminal': disease_dict.get('is_terminal', False)
                     }
                 )
-                instance.disease.add(disease_obj)  # Add updated diseases
+                instance.disease.add(disease_obj)  
 
         return instance
 

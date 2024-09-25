@@ -1,4 +1,4 @@
-# urls.py
+
 from django.urls import path
 from .views import (
     UserListView,
@@ -19,7 +19,7 @@ from .views import (
     BulkDeleteDischargedPatientsView,
 )
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
-from .views import CustomTokenObtainPairView  # Import custom token view
+from .views import CustomTokenObtainPairView  
 
 urlpatterns = [
     path('', RootView.as_view(), name='root'),

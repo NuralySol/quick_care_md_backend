@@ -57,7 +57,7 @@ class Doctor(models.Model):
             self.user.save()
 
     def delete(self, *args, **kwargs):
-        # Prevent deletion if doctor is assigned to any active patients
+        #! Prevent deletion if doctor is assigned to any active patients (Stretch Goal to hit)
         if Patient.objects.filter(doctor=self).exists():
             raise ValidationError("Cannot delete a doctor while they have active patients.")
         super(Doctor, self).delete(*args, **kwargs)
@@ -67,21 +67,21 @@ class Patient(models.Model):
     name = models.CharField(max_length=100)
     time_admitted = models.DateTimeField(auto_now_add=True)
     disease = models.ManyToManyField('Disease')
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='patients')  # Add related_name
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='patients')  
 
     def __str__(self):
         return self.name
 
 
 class Disease(models.Model):
-    disease_id = models.AutoField(primary_key=True)  # Use auto-increment for disease ID
+    disease_id = models.AutoField(primary_key=True)  
     name = models.CharField(max_length=100)
     is_terminal = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
 
-    # Method to return valid treatments for each disease
+    #! Method to return valid treatments for each disease check againts (fixtures.JSON)
     def get_valid_treatments(self):
         valid_treatments = {
             "Diabetes": ["Insulin therapy", "Lifestyle changes"],
@@ -100,7 +100,7 @@ class Treatment(models.Model):
     treatment_id = models.AutoField(primary_key=True)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, null=True, blank=True)
     disease = models.ForeignKey(Disease, on_delete=models.CASCADE, related_name='treatments', null=True, blank=True)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)  # Add this
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True, blank=True)  
     treatment_options = models.TextField()
     success = models.BooleanField(default=False)
 
@@ -108,18 +108,17 @@ class Treatment(models.Model):
         patient_name = self.patient.name if self.patient else "Unknown Patient"
         return f"{patient_name} - {self.treatment_options}"
 
-    @transaction.atomic  # Ensure atomic transactions
+    @transaction.atomic  
     def save(self, *args, **kwargs):
         """Custom save method to check treatment success"""
-        if self.pk:  # Updating an existing treatment
+        if self.pk:  
             old_treatment = Treatment.objects.get(pk=self.pk)
             if old_treatment.success != self.success:
-                if self.success:  # Marking as successful
+                if self.success:  # Marking as successful treatments
                     self.doctor.incorrect_treatments -= 1
-                else:  # Marking as incorrect
+                else:  
                     self.doctor.incorrect_treatments += 1
         else:
-            # New treatment being created
             if not self.success:
                 self.doctor.incorrect_treatments += 1
 
@@ -131,7 +130,7 @@ class Discharge(models.Model):
     discharge_id = models.AutoField(primary_key=True) 
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     discharged = models.BooleanField(default=False)
-    discharge_date = models.DateTimeField(auto_now_add=True)  # Track discharge date
+    discharge_date = models.DateTimeField(auto_now_add=True)  
 
     def __str__(self):
         return f"{self.patient.name} - {'Discharged' if self.discharged else 'Not Discharged'}"

@@ -1,4 +1,4 @@
-# This is for the admin panel. It allows the admin to view and edit the models in the admin panel.
+# This is for the admin panel (Django)
 
 from django.contrib import admin
 from .models import User, Doctor, Patient, Disease, Treatment, Discharge

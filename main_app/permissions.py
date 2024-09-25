@@ -12,7 +12,7 @@ class IsAdminUserOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         
-        # If the user is authenticated and is an admin, they can perform any action.
+        # If the user is authenticated and is an admin, they can perform any action CRUD
         return request.user.is_authenticated and (request.user.role == 'admin' or request.user.role == 'doctor')
 
     def has_object_permission(self, request, view, obj):

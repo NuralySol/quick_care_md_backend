@@ -1,3 +1,5 @@
+#! Special script to purge the PSQL DB local
+
 from django.core.management.base import BaseCommand
 from main_app.models import User, Doctor, Patient
 
